@@ -1,73 +1,266 @@
 #include <iostream>
-#include <cstring>
-#include <cstdlib>
-
+#include <mysql.h>
+#include <mysqld_error.h>
+#include <windows.h>
+#include <sstream>
 using namespace std;
 
-class Library {
+const char* HOST = "localhost";
+const char* USER = "root";
+const char* PW = "abc123#";
+const char* DB = "mydb";
+
+class Student{
+private:
+ string Id;
 public:
-    int id;
-    char name[100];
-    char author[100];
-    char student[100];
-    int price;
-    int pages;
+Student() : Id("") {}
+
+void setId(string id) {
+  Id = id;
+ }
+ 
+ string getId() {
+  return Id;
+ }
+ 
 };
 
+class Library{
+private:
+ string Name;
+ int Quantity;
+public:
+Library() : Name(""), Quantity(0) {}
+
+void setName(string name) {
+  Name = name;
+}
+
+void setQuantity(int quantity) {
+  Quantity = quantity;
+}
+
+int getQuantity() {
+  return Quantity;
+}
+string getName() {
+  return Name;
+}
+
+	
+};
+
+void admin(MYSQL* conn, Library l, Student s){
+	bool closed = false;
+	while(!closed){
+	int choice;
+cout << "1. Add Book." << endl;
+ cout << "2. Add Student." << endl;
+ cout << "0. Exit." << endl;
+ cout << "Enter Choice: ";
+ cin >> choice;
+ 
+ if(choice==1){
+ 	system("cls");
+string name;
+int quantity;
+
+cout<<"Book Name: ";
+cin>>name;
+l.setName(name);
+
+cout<<"Enter Quantity: ";
+cin>>quantity;
+l.setQuantity(quantity);
+
+int Iq = l.getQuantity();
+stringstream ss;
+ss<<Iq;
+string Sq = ss.str();
+
+string book = "INSERT INTO lib (Name,Quantity) VALUES('"+l.getName()+"', '"+Sq+"') ";
+if(mysql_query(conn,book.c_str())){
+	cout<<"Error: "<<mysql_error(conn)<<endl;
+}
+else{
+	cout<<"Book Inserted Successfuly"<<endl;
+}
+ }// if1
+ 
+ else if(choice==2){
+ 	system("cls");
+string id;
+ cout << "Enter Student ID: ";
+ cin >> id;
+ s.setId(id);
+ 
+  string st = "INSERT INTO student (Id) VALUES('" + s.getId() + "')";
+ if (mysql_query(conn, st.c_str())) {
+ cout << "Error: " << mysql_error(conn) << endl;
+ }
+else {
+  cout << "Student Inserted Successfully" << endl; 
+}
+}//if2
+else if(choice ==0){
+	closed = true;
+	cout<<"System is closing"<<endl;
+}
+	}//while
+Sleep(3000);
+}//function
+
+//display function
+void display(MYSQL* conn){
+	system("cls");
+cout<<"Available Books"<<endl;
+cout<<"***************"<<endl;
+
+string disp= "SELECT * FROM lib";
+ if (mysql_query(conn, disp.c_str())) {
+  cout << "Error: " << mysql_error(conn) << endl;
+ }
+ else{
+ 	MYSQL_RES* res;
+ 	res= mysql_store_result(conn);
+ 	if(res){
+ 		int num= mysql_num_fields(res);
+ 	MYSQL_ROW row;
+ 	while(row=mysql_fetch_row(res)){
+ 		for(int i=0; i< num; i++){
+ 			cout<<" "<<row[i];
+		 }
+		cout<<endl;
+	 }
+	 mysql_free_result(res);
+	 }
+ }
+}
+
+//book function
+
+int book(MYSQL* conn, string Bname){
+string exist = "SELECT Name, Quantity FROM lib WHERE Name = '" + Bname + "'";
+if (mysql_query(conn, exist.c_str())) {
+ cout << "Error: " << mysql_error(conn) << endl;
+ }
+else{
+MYSQL_RES* res;
+res = mysql_store_result(conn);
+if(res){
+	int num = mysql_num_fields(res);
+MYSQL_ROW row;
+while(row=mysql_fetch_row(res)){
+	for(int i=0; i< num; i++){
+	if(Bname == row[i]){
+	int quantity = atoi(row[i+1]);
+	return quantity;	
+	}
+	else{
+		cout<<"Book Not Found."<<endl;
+	}
+	}
+} 
+mysql_free_result(res);
+}
+	
+}//else if exist
+return 0;
+Sleep(5000);
+}//function
+
+// user function
+
+void user(MYSQL* conn, Library l, Student s){
+	system("cls");
+	display(conn);
+string Sid;
+cout<<"Enter Your ID: ";
+cin>>Sid;
+
+string com = "SELECT * FROM student WHERE Id = '"+Sid+"'";
+ if (mysql_query(conn, com.c_str())) {
+   cout << "Error: " << mysql_error(conn) << endl;
+ }
+ else{
+MYSQL_RES* res;
+res=mysql_store_result(conn);
+if(res){
+	int num= mysql_num_rows(res);
+	if(num==1){
+		cout<<"Student ID Found."<<endl;
+	string Bname;
+	cout<<"Enter Book Name: ";
+	cin>>Bname;
+	if(book(conn,Bname) > 0){
+		int bookQuantity = book(conn,Bname)-1;
+		stringstream ss;
+		ss<<bookQuantity;
+		string Sq = ss.str();
+
+string upd ="UPDATE lib SET Quantity ='"+Sq+"' WHERE Name = '"+Bname+"' ";
+if(mysql_query(conn,upd.c_str())){
+	cout<<"Error: "<<mysql_error(conn)<<endl;
+}
+else{
+	cout<<"Book is available. Borrowing Book...."<<endl;
+}
+	}
+	else{
+		cout<<"Book is not Available."<<endl;
+	}
+	}
+else if(num==0){
+	cout<<"This Student is Not Registered."<<endl;
+}
+}
+mysql_free_result(res);
+ }	
+}
+
 int main() {
-    Library lib[20];
-    int input = 0;
-    int count = 0;
+	Student s;
+	Library l;
 
-    while (input != 3) {
-        cout << "Enter 1 to input details like id, name, author, student, price, pages" << endl;
-        cout << "Enter 2 to display details" << endl;
-        cout << "Enter 3 to exit" << endl;
-        cin >> input;
+MYSQL* conn;
+conn = mysql_init(NULL);
 
-        switch (input) {
-            case 1:
-                if (count < 5) {
-                    cout << "Enter Book Id: ";
-                    cin >> lib[count].id;
-                    cin.ignore();  // To clear the newline character from the buffer
-                    cout << "Enter Book Name: ";
-                    cin.getline(lib[count].name, 100 ,'$');
-                    cout << "Enter Author Name: ";
-                    cin.getline(lib[count].author, 100 , '$');
-                    cout << "Enter Student Name: ";
-                    cin.getline(lib[count].student, 100 , '$');
-                    cout << "Enter Book Price: ";
-                    cin >> lib[count].price;
-                    cout << "Enter Book Pages: ";
-                    cin >> lib[count].pages;
-                    cin.ignore();  // Clear the newline character again
-                    count++;
-                } else {
-                    cout << "Library is full. Cannot add more books." << endl;
-                }
-                break;
+if(!mysql_real_connect(conn,HOST, USER, PW,DB,3306,NULL,0)){
+	cout<<"Error: "<<mysql_error(conn)<<endl;
+}
+else{
+	cout<<"Logged In!"<<endl;
+}
+Sleep(3000);
+bool exit = false;
+while(!exit){
+	system("cls");
+	int val;
+cout << "Welcome To Library Management System" << endl;
+cout << "************************************" << endl;
+cout << "1. Administration." << endl;
+cout << "2. User." << endl;
+cout << "0. Exit." << endl;
+cout<<"Enter Choice: ";
+cin>>val;
 
-            case 2:
-                for (int i = 0; i < count; i++) {
-                    cout << "Book Id: " << lib[i].id << endl;
-                    cout << "Book Name: " << lib[i].name << endl;
-                    cout << "Book Author: " << lib[i].author << endl;
-                    cout << "Book Student: " << lib[i].student << endl;
-                    cout << "Book Price: " << lib[i].price << endl;
-                    cout << "Book Pages: " << lib[i].pages << endl;
-                    cout << "----------------------" << endl;
-                }
-                break;
+if(val==1){
+	system("cls");
+admin(conn,l,s);	
+}//if1 main
 
-            case 3:
-                cout << "Exiting..." << endl;
-                break;
+else if(val==2){
+user(conn,l,s);
+Sleep(5000);	
+}
+else if(val==0){
+	exit= true;
+	cout<<"Good Luck!"<<endl;
+	Sleep(3000);
+}
 
-            default:
-                cout << "You have entered a wrong value, please try again." << endl;
-        }
-    }
-
-    return 0;
+}//while
+mysql_close(conn);
+	return 0;
 }
